@@ -42,24 +42,16 @@ int main() {
   }
 
 
+
   std::vector<std::string> inputs; 
   inputs.push_back("bob");
   //
   int inputs_count = inputs.size();
   //
-  int pointer_of_pointers;
 
   // alloc a space for input args
-  P[0] = WasmEdge_ValueGenI32(inputs_count * 4 * 2);
-  FuncName = WasmEdge_StringCreateByCString("allocate");
-  // Don't need to deallocate because the memory will be loaded and free in the wasm
-  Res = WasmEdge_VMExecute(VMCxt, FuncName, P, 1, R, 1);
-  WasmEdge_StringDelete(FuncName);
-
-  if (WasmEdge_ResultOK(Res)) {
-    pointer_of_pointers = WasmEdge_ValueGetI32(R[0]);
-    printf("[allocate] Ok: %d\n", pointer_of_pointers);
-  } else {
+  int pointer_of_pointers = allocate(VMCxt, inputs_count * 4 * 2);
+  if (pointer_of_pointers == exit_error_code) {
     printf("[allocate] Error\n");
     return exit_error_code;
   }
@@ -81,9 +73,10 @@ int main() {
   }
 
 
-  // // WasmEdge_MemoryInstanceSetData(WasmEdge_MemoryInstanceContext *Cxt,
-  // //                              const uint8_t *Data, const uint32_t Offset,
-  // //                              const uint32_t Length);
+  int pos = 0;
+  for (auto &inp : inputs) {
+    // settle
+  }
 
 
   // Run func
@@ -101,3 +94,40 @@ int main() {
 
   return exit_success_code;
 }
+
+// https://stackoverflow.com/questions/27687769/use-different-parameter-data-types-in-same-function-c
+std::vector<int> settle(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContext *MemoryCxt, std::string param) {
+  
+  int length = param.length();
+
+  int pointer = allocate(VMCxt, length);
+
+  const char *cParam = param.c_str(); 
+  WasmEdge_MemoryInstanceSetData(MemoryCxt, (unsigned char *)cParam, pointer, length);
+
+  std::vector<int> res; 
+  res.push_back(pointer);
+  res.push_back(length);
+
+  return res;
+}
+
+int allocate(WasmEdge_VMContext *VMCxt, int length) {
+  WasmEdge_Value P[1], R[1]; 
+  WasmEdge_String FuncName;
+  WasmEdge_Result Res;
+
+  // alloc a space for input args
+  P[0] = WasmEdge_ValueGenI32(length);
+  FuncName = WasmEdge_StringCreateByCString("allocate");
+  // Don't need to deallocate because the memory will be loaded and free in the wasm
+  Res = WasmEdge_VMExecute(VMCxt, FuncName, P, 1, R, 1);
+  WasmEdge_StringDelete(FuncName);
+
+  if (WasmEdge_ResultOK(Res)) {
+    return WasmEdge_ValueGetI32(R[0]);
+  } else {
+    return exit_error_code;
+  }
+}
+
