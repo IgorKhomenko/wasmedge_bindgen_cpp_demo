@@ -8,8 +8,51 @@ const int exit_success_code = 0;
 
 const char *wasm_file_path = "../module/target/wasm32-wasi/release/funcs.wasm";
 
-int main() {
+int allocate(WasmEdge_VMContext *VMCxt, int length) {
+  WasmEdge_Value P[1], R[1]; 
+  WasmEdge_String FuncName;
+  WasmEdge_Result Res;
 
+  // alloc a space for input args
+  P[0] = WasmEdge_ValueGenI32(length);
+  FuncName = WasmEdge_StringCreateByCString("allocate");
+  // Don't need to deallocate because the memory will be loaded and free in the wasm
+  Res = WasmEdge_VMExecute(VMCxt, FuncName, P, 1, R, 1);
+  WasmEdge_StringDelete(FuncName);
+
+  if (WasmEdge_ResultOK(Res)) {
+    printf("allocate R: %d\n", R[0]);
+    printf("allocate R i32: %d\n", WasmEdge_ValueGetI32(R[0]));
+    return WasmEdge_ValueGetI32(R[0]);
+  } else {
+    return exit_error_code;
+  }
+}
+
+// https://stackoverflow.com/questions/27687769/use-different-parameter-data-types-in-same-function-c
+std::vector<int> settle(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContext *MemoryCxt, std::string input) {
+  const char *cInput = input.c_str(); 
+
+  int length_of_input = input.length();
+  int pointer = allocate(VMCxt, length_of_input);
+
+  WasmEdge_MemoryInstanceSetData(MemoryCxt, (unsigned char *)cInput, pointer, length_of_input);
+
+  std::vector<int> res; 
+  res.push_back(pointer);
+  res.push_back(length_of_input);
+
+  return res;
+}
+
+void swapByteOrder(unsigned int& ui) {
+    ui = (ui >> 24) |
+         ((ui<<8) & 0x00FF0000) |
+         ((ui>>8) & 0x0000FF00) |
+         (ui << 24);
+}
+
+int main() {
   WasmEdge_ConfigureContext *ConfCxt = WasmEdge_ConfigureCreate();
   WasmEdge_ConfigureAddHostRegistration(ConfCxt, WasmEdge_HostRegistration_Wasi);
 
@@ -75,59 +118,77 @@ int main() {
 
   int pos = 0;
   for (auto &inp : inputs) {
-    // settle
+    std::cout << "pos: " << pos << std::endl;
+
+    std::vector<int> sr = settle(VMCxt, MemoryCxt, inp);
+
+    int pointer = sr[0];
+    //
+    unsigned char *ucPointerLittleEndian = reinterpret_cast<unsigned char*>(&pointer);
+    for (int i = 0; i < sizeof(int); ++i) {
+        std::cout << "Byte (pointer): " << i << ": " << static_cast<int>(ucPointerLittleEndian[i]) << std::endl;
+    }
+    //
+    WasmEdge_MemoryInstanceSetData(MemoryCxt,  ucPointerLittleEndian, pointer_of_pointers + pos * 4 * 2, sizeof(ucPointerLittleEndian));
+
+    int length_of_input = sr[1];
+    //
+    unsigned char *ucLenghtOfInputLittleEndian = reinterpret_cast<unsigned char*>(&length_of_input);
+    for (int i = 0; i < sizeof(int); ++i) {
+        std::cout << "Byte (length_of_input): " << i << ": " << static_cast<int>(ucLenghtOfInputLittleEndian[i]) << std::endl;
+    }
+    //
+    WasmEdge_MemoryInstanceSetData(MemoryCxt, ucLenghtOfInputLittleEndian, pointer_of_pointers + pos * 4 * 2 + 4, sizeof(ucLenghtOfInputLittleEndian));
+
+    ++pos;
   }
 
 
-  // Run func
-  P[0] = WasmEdge_ValueGenI32(pointer_of_pointers); // params_pointer: *mut u32
-  P[1] = WasmEdge_ValueGenI32(inputs_count); // params_count: i32
-  FuncName = WasmEdge_StringCreateByCString("say");
-  Res = WasmEdge_VMExecute(VMCxt, FuncName, P, 2, R, 1);
-  WasmEdge_StringDelete(FuncName);
-  if (WasmEdge_ResultOK(Res)) {
-    printf("[say] Ok: %d\n", WasmEdge_ValueGetI32(R[0]));
-  } else {
-    printf("[say] Error\n");
-    return exit_error_code;
-  }
+  // // Run func
+  // P[0] = WasmEdge_ValueGenI32(pointer_of_pointers); // params_pointer: *mut u32
+  // P[1] = WasmEdge_ValueGenI32(inputs_count); // params_count: i32
+  // FuncName = WasmEdge_StringCreateByCString("say");
+  // Res = WasmEdge_VMExecute(VMCxt, FuncName, P, 2, R, 1);
+  // WasmEdge_StringDelete(FuncName);
+  // if (WasmEdge_ResultOK(Res)) {
+  //   printf("[say] Ok: %d\n", WasmEdge_ValueGetI32(R[0]));
+  // } else {
+  //   printf("[say] Error\n");
+  //   return exit_error_code;
+  // }
 
   return exit_success_code;
 }
 
-// https://stackoverflow.com/questions/27687769/use-different-parameter-data-types-in-same-function-c
-std::vector<int> settle(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContext *MemoryCxt, std::string param) {
-  
-  int length = param.length();
+// void memory_set_data(WasmEdge_MemoryInstanceContext *MemoryCxt, const uint8_t *Data, const uint32_t Offset) {
 
-  int pointer = allocate(VMCxt, length);
+//     WasmEdge_MemoryInstanceSetData(MemoryCxt,  (unsigned char *)pointer, pointer_of_pointers + pos * 4 * 2);
+//     WasmEdge_MemoryInstanceSetData(MemoryCxt,  (unsigned char *)length, pointer_of_pointers + pos * 4 * 2 + 4);
 
-  const char *cParam = param.c_str(); 
-  WasmEdge_MemoryInstanceSetData(MemoryCxt, (unsigned char *)cParam, pointer, length);
+//     // memory.set_data(pointer.to_le_bytes(), pointer_of_pointers as u32 + pos as u32 * 4 * 2)?;
+// 		// memory.set_data(length_of_input.to_le_bytes(), pointer_of_pointers as u32 + pos as u32 * 4 * 2 + 4)?;
 
-  std::vector<int> res; 
-  res.push_back(pointer);
-  res.push_back(length);
+// }
 
-  return res;
-}
 
-int allocate(WasmEdge_VMContext *VMCxt, int length) {
-  WasmEdge_Value P[1], R[1]; 
-  WasmEdge_String FuncName;
-  WasmEdge_Result Res;
 
-  // alloc a space for input args
-  P[0] = WasmEdge_ValueGenI32(length);
-  FuncName = WasmEdge_StringCreateByCString("allocate");
-  // Don't need to deallocate because the memory will be loaded and free in the wasm
-  Res = WasmEdge_VMExecute(VMCxt, FuncName, P, 1, R, 1);
-  WasmEdge_StringDelete(FuncName);
 
-  if (WasmEdge_ResultOK(Res)) {
-    return WasmEdge_ValueGetI32(R[0]);
-  } else {
-    return exit_error_code;
-  }
-}
 
+
+
+// int myInt = 123; // Your integer value
+//  unsigned char *ptr = reinterpret_cast<unsigned char*>(&myInt);
+// // Print the individual bytes
+// for (int i = 0; i < sizeof(int); ++i) {
+//     std::cout << "Byte " << i << ": " << static_cast<int>(ptr[i]) << std::endl;
+// }
+//
+// The output you're seeing is expected for a little-endian system, where the least significant byte comes first in memory. In your case, it appears that the integer 123 is represented in memory as follows:
+//
+// Byte 0: 123
+// Byte 1: 0
+// Byte 2: 0
+// Byte 3: 0
+// This output indicates that the integer 123 is stored in memory using 4 bytes, where the least significant byte (LSB) is 123 and the other bytes are 0. This is consistent with little-endian byte ordering, where the least significant byte comes first in memory.
+
+// So yes, it's okay, and it reflects the memory layout of the integer 123 on your system.
