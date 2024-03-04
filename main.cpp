@@ -8,15 +8,10 @@ const int exit_success_code = 0;
 
 const char *wasm_file_path = "../module/target/wasm32-wasi/release/funcs.wasm";
 
-// TODO
-unsigned char *splice(unsigned char *input_vec, int start, int end) {
-  uint32_t subrange_size = end - start + 1;
-  unsigned char ret_pointer[subrange_size]; 
-  for (uint32_t i = start, j = 0; i <= end; ++i, ++j) {
-      ret_pointer[j] = input_vec[i];
+void splice(const unsigned char* array, int start, int end, unsigned char* spliced_array) {
+  for (int i = start; i <= end; ++i) {
+    *spliced_array++ = array[i];
   }
-
-  return ret_pointer;
 }
 
 void printBytes(unsigned char *vec) {
@@ -81,12 +76,12 @@ int parse_result(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContext *Memo
   int size = static_cast<int>(*ret_len);
   // int retPointer = static_cast<int>(*ret_pointer);
 
-   int retPointer;
+  int retPointer;
   std::memcpy(&retPointer, ret_pointer, sizeof(int));
   std::cout << std::hex << retPointer << '\n';
 
-  printf("retPointer: %d\n", retPointer);
-  printf("size: %d\n", size);
+  // printf("retPointer: %d\n", retPointer);
+  // printf("size: %d\n", size);
 
   unsigned char p_data[size];
   WasmEdge_MemoryInstanceGetData(MemoryCxt, p_data, retPointer, size * 3 * 4);
@@ -223,21 +218,11 @@ int main() {
 
   unsigned char flag = rvec[0];
   if (flag == 0) {
-    uint32_t start = 1;
-    uint32_t end = 5;
-    uint32_t subrange_size = end - start + 1;
-    unsigned char ret_pointer[subrange_size]; 
-    for (uint32_t i = start, j = 0; i <= end; ++i, ++j) {
-        ret_pointer[j] = rvec[i];
-    }
+    unsigned char ret_pointer[5];
+    splice(rvec, 1, 5, ret_pointer);
 
-    start = 5;
-    end = 9;
-    subrange_size = end - start + 1;
-    unsigned char ret_len[subrange_size]; 
-    for (uint32_t i = start, j = 0; i <= end; ++i, ++j) {
-        ret_len[j] = rvec[i];
-    }
+    unsigned char ret_len[5];
+    splice(rvec, 5, 9, ret_len);
 
     parse_result(VMCxt, MemoryCxt, ret_pointer, ret_len);
   } else {
