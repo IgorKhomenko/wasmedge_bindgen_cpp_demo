@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <vector>
+#include <any>
 
 const int exit_error_code = 1;
 const int exit_success_code = 0;
@@ -96,7 +97,7 @@ std::vector<int> settle(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContex
   return res;
 }
 
-std::vector<std::string> parse_result(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContext *MemoryCxt, unsigned char *ret_pointer, unsigned char *ret_len) {
+std::vector<std::any> parse_result(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContext *MemoryCxt, unsigned char *ret_pointer, unsigned char *ret_len) {
   int size = static_cast<int>(*ret_len);
 
   int retPointer;
@@ -127,7 +128,7 @@ std::vector<std::string> parse_result(WasmEdge_VMContext *VMCxt, WasmEdge_Memory
     p_values.push_back(p_data_slice_int);
   }
 
-  std::vector<std::string> results; 
+  std::vector<std::any> results; 
   // results.reserve(size);
   for (int i = 0; i < size; ++i) {
       const int len = p_values[i*3+2];
@@ -141,8 +142,29 @@ std::vector<std::string> parse_result(WasmEdge_VMContext *VMCxt, WasmEdge_Memory
       switch (retType) {
         case RetTypes::String: {
           std::string bytesString((char *)bytes);
-          printf("bytesString: %s\n", bytesString.c_str());
+          printf("val string: %s\n", bytesString.c_str());
           results.push_back(bytesString);
+          break;
+        }
+        case RetTypes::I32: {
+          int val;
+          std::memcpy(&val, bytes, sizeof(int));
+          printf("val int: %d\n", val);
+          results.push_back(val);
+          break;
+        }
+        case RetTypes::F32: {
+          float val;
+          std::memcpy(&val, bytes, sizeof(float));
+          printf("val float: %f\n", val);
+          results.push_back(val);
+          break;
+        }
+        case RetTypes::Bool: {
+          bool val;
+          std::memcpy(&val, bytes, sizeof(bool));
+          printf("val bool: %d\n", val);
+          results.push_back(val);
           break;
         }
       }
@@ -278,7 +300,7 @@ int main() {
     splice(rvec, 5, 9, ret_len);
     // printBytes(ret_len, 4, "ret_len");
 
-    parse_result(VMCxt, MemoryCxt, ret_pointer, ret_len);
+    std::vector<std::any> results = parse_result(VMCxt, MemoryCxt, ret_pointer, ret_len);
   } else {
     printf("Error: parsing result failed\n");
     return exit_error_code;
