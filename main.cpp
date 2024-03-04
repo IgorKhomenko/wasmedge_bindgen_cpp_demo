@@ -64,8 +64,6 @@ int main() {
   WasmEdge_ModuleInstanceContext *WasiCxt = WasmEdge_VMGetImportModuleContext(VMCxt, WasmEdge_HostRegistration_Wasi);
   WasmEdge_ModuleInstanceInitWASI(WasiCxt,  NULL, 0, NULL, 0,  NULL, 0);
 
-  WasmEdge_Value P[2], R[1]; 
-  WasmEdge_String FuncName;
   WasmEdge_Result Res;
 
   Res = WasmEdge_VMLoadWasmFromFile(VMCxt, wasm_file_path);
@@ -144,41 +142,33 @@ int main() {
   }
 
 
-  // // Run func
-  // P[0] = WasmEdge_ValueGenI32(pointer_of_pointers); // params_pointer: *mut u32
-  // P[1] = WasmEdge_ValueGenI32(inputs_count); // params_count: i32
-  // FuncName = WasmEdge_StringCreateByCString("say");
-  // Res = WasmEdge_VMExecute(VMCxt, FuncName, P, 2, R, 1);
-  // WasmEdge_StringDelete(FuncName);
-  // if (WasmEdge_ResultOK(Res)) {
-  //   printf("[say] Ok: %d\n", WasmEdge_ValueGetI32(R[0]));
-  // } else {
-  //   printf("[say] Error\n");
-  //   return exit_error_code;
-  // }
+  // Run func
+  WasmEdge_Value P[2], rets[1]; 
+  WasmEdge_String FuncName;
+  P[0] = WasmEdge_ValueGenI32(pointer_of_pointers); // params_pointer: *mut u32
+  P[1] = WasmEdge_ValueGenI32(inputs_count); // params_count: i32
+  FuncName = WasmEdge_StringCreateByCString("say");
+  Res = WasmEdge_VMExecute(VMCxt, FuncName, P, 2, rets, 1);
+  WasmEdge_StringDelete(FuncName);
+  if (WasmEdge_ResultOK(Res)) {
+    printf("[say] Ok: %d\n", WasmEdge_ValueGetI32(rets[0]));
+  } else {
+    printf("[say] Error\n");
+    return exit_error_code;
+  }
+
+  // Don't need to deallocate because the memory will be loaded and free in the wasm
+  //
 
   return exit_success_code;
 }
 
-// void memory_set_data(WasmEdge_MemoryInstanceContext *MemoryCxt, const uint8_t *Data, const uint32_t Offset) {
 
-//     WasmEdge_MemoryInstanceSetData(MemoryCxt,  (unsigned char *)pointer, pointer_of_pointers + pos * 4 * 2);
-//     WasmEdge_MemoryInstanceSetData(MemoryCxt,  (unsigned char *)length, pointer_of_pointers + pos * 4 * 2 + 4);
-
-//     // memory.set_data(pointer.to_le_bytes(), pointer_of_pointers as u32 + pos as u32 * 4 * 2)?;
-// 		// memory.set_data(length_of_input.to_le_bytes(), pointer_of_pointers as u32 + pos as u32 * 4 * 2 + 4)?;
-
-// }
-
-
-
-
-
-
-
+//
+//
+//
 // int myInt = 123; // Your integer value
-//  unsigned char *ptr = reinterpret_cast<unsigned char*>(&myInt);
-// // Print the individual bytes
+// unsigned char *ptr = reinterpret_cast<unsigned char*>(&myInt);
 // for (int i = 0; i < sizeof(int); ++i) {
 //     std::cout << "Byte " << i << ": " << static_cast<int>(ptr[i]) << std::endl;
 // }
