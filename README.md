@@ -1,4 +1,10 @@
-Build rust wasm:
+# Overview
+
+The project's goal is to mimic the `wasmedge-bindgen` behaviour at C++ side for the Host app.
+
+# How to 
+
+Build rust wasm user module:
 
 ```
 cd module && cargo build --target wasm32-wasi --release && cd ..
