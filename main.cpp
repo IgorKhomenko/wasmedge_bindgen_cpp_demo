@@ -8,15 +8,39 @@ const int exit_success_code = 0;
 
 const char *wasm_file_path = "../module/target/wasm32-wasi/release/funcs.wasm";
 
+enum RetTypes {
+	U8 = 1,
+	I8 = 2,
+	U16 = 3,
+	I16 = 4,
+	U32 = 5,
+	I32 = 6,
+	U64 = 7,
+	I64 = 8,
+	F32 = 9,
+	F64 = 10,
+	Bool = 11,
+	Char = 12,
+	U8Array = 21,
+	I8Array = 22,
+	U16Array = 23,
+	I16Array = 24,
+	U32Array = 25,
+	I32Array = 26,
+	U64Array = 27,
+	I64Array = 28,
+	String = 31,
+};
+
 void splice(const unsigned char* array, int start, int end, unsigned char* spliced_array) {
-  for (int i = start; i <= end; ++i) {
+  for (int i = start; i < end; ++i) {
     *spliced_array++ = array[i];
   }
 }
 
-void printBytes(unsigned char *vec) {
-  for (int i = 0; i < sizeof(int); ++i) {
-    std::cout << "Byte: " << i << ": " << static_cast<int>(vec[i]) << std::endl;
+void printBytes(unsigned char *vec, int len, char *name) {
+  for (int i = 0; i < len; ++i) {
+    std::cout << "[" << name << "] Byte: " << i << ": " << static_cast<int>(vec[i]) << std::endl;
   }
 }
 
@@ -72,33 +96,59 @@ std::vector<int> settle(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContex
   return res;
 }
 
-int parse_result(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContext *MemoryCxt, unsigned char *ret_pointer, unsigned char *ret_len) {
+std::vector<std::string> parse_result(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContext *MemoryCxt, unsigned char *ret_pointer, unsigned char *ret_len) {
   int size = static_cast<int>(*ret_len);
-  // int retPointer = static_cast<int>(*ret_pointer);
 
   int retPointer;
   std::memcpy(&retPointer, ret_pointer, sizeof(int));
-  std::cout << std::hex << retPointer << '\n';
 
   // printf("retPointer: %d\n", retPointer);
   // printf("size: %d\n", size);
 
-  unsigned char p_data[size];
-  WasmEdge_MemoryInstanceGetData(MemoryCxt, p_data, retPointer, size * 3 * 4);
-  deallocate(VMCxt, retPointer, size * 3 * 4);
+  int p_data_len = size * 3 * 4;
+  unsigned char p_data[p_data_len];
+  WasmEdge_MemoryInstanceGetData(MemoryCxt, p_data, retPointer, p_data_len);
+  deallocate(VMCxt, retPointer, p_data_len);
+
+  // printBytes(p_data, p_data_len, "p_data");
 
   std::vector<int> p_values; 
+  // p_values.reserve(size * 3);
   for (int i = 0; i < (size * 3); ++i) {
-    // p_values.push_back(n);
+    unsigned char p_data_slice[4];
+    splice(p_data, i*4, (i+1)*4, p_data_slice);
+
+    // printf("i: %d. %d - %d\n", i, i*4, (i+1)*4);  
+    // printBytes(p_data_slice, 4, "p_data_slice");
+
+    int p_data_slice_int;
+    std::memcpy(&p_data_slice_int, p_data_slice, sizeof(int));
+    // printf("p_data_slice_int: %d\n", p_data_slice_int);  
+    p_values.push_back(p_data_slice_int);
   }
 
-  	// for i in 0..size * 3 {
-		// 	p_values[i] = i32::from_le_bytes(p_data[i*4..(i+1)*4].try_into().unwrap());
-		// }
+  std::vector<std::string> results; 
+  // results.reserve(size);
+  for (int i = 0; i < size; ++i) {
+      const int len = p_values[i*3+2];
+      unsigned char bytes[len];
+      WasmEdge_MemoryInstanceGetData(MemoryCxt, bytes, p_values[i*3], len);
+      deallocate(VMCxt, p_values[i*3], len);
 
-		// let mut results: Vec<Box<dyn Any + Send + Sync>> = Vec::with_capacity(size);
+      const int retType = p_values[i*3+1];
+      // printf("retType: %d\n", retType);
 
+      switch (retType) {
+        case RetTypes::String: {
+          std::string bytesString((char *)bytes);
+          printf("bytesString: %s\n", bytesString.c_str());
+          results.push_back(bytesString);
+          break;
+        }
+      }
+  }
 
+  return results;
 }
 
 int main() {
@@ -178,14 +228,14 @@ int main() {
     int pointer = sr[0];
     //
     unsigned char *ucPointerLittleEndian = reinterpret_cast<unsigned char*>(&pointer);
-    // printBytes(ucPointerLittleEndian);
+    // printBytes(ucPointerLittleEndian, "ucPointerLittleEndian");
     //
     WasmEdge_MemoryInstanceSetData(MemoryCxt,  ucPointerLittleEndian, pointer_of_pointers + pos * 4 * 2, sizeof(ucPointerLittleEndian));
 
     int length_of_input = sr[1];
     //
     unsigned char *ucLenghtOfInputLittleEndian = reinterpret_cast<unsigned char*>(&length_of_input);
-    // printBytes(ucLenghtOfInputLittleEndian);
+    // printBytes(ucLenghtOfInputLittleEndian, "ucLenghtOfInputLittleEndian");
     WasmEdge_MemoryInstanceSetData(MemoryCxt, ucLenghtOfInputLittleEndian, pointer_of_pointers + pos * 4 * 2 + 4, sizeof(ucLenghtOfInputLittleEndian));
 
     ++pos;
@@ -210,19 +260,23 @@ int main() {
   // Don't need to deallocate 'pointer_of_pointers' because the memory will be loaded and free in the wasm
   //
 
-  uint32_t offset = 9;
-  unsigned char rvec[offset];
+  uint32_t size = 9;
+  unsigned char rvec[size];
   uint32_t retsInt = WasmEdge_ValueGetI32(rets[0]);
-  WasmEdge_MemoryInstanceGetData(MemoryCxt, rvec, retsInt, offset);
-  deallocate(VMCxt, retsInt, offset);
+  WasmEdge_MemoryInstanceGetData(MemoryCxt, rvec, retsInt, size);
+  deallocate(VMCxt, retsInt, size);
+
+  // printBytes(rvec, size, "rvec");
 
   unsigned char flag = rvec[0];
   if (flag == 0) {
-    unsigned char ret_pointer[5];
+    unsigned char ret_pointer[4];
     splice(rvec, 1, 5, ret_pointer);
+    // printBytes(ret_pointer, 4, "ret_pointer");
 
-    unsigned char ret_len[5];
+    unsigned char ret_len[4];
     splice(rvec, 5, 9, ret_len);
+    // printBytes(ret_len, 4, "ret_len");
 
     parse_result(VMCxt, MemoryCxt, ret_pointer, ret_len);
   } else {

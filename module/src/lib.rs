@@ -15,7 +15,7 @@ pub mod funcs {
 
   #[no_mangle]
   pub unsafe extern fn allocate(size: i32) -> *const u8 {
-    println!("allocate size={}", size);
+    // println!("allocate size={}", size);
 
     let buffer = Vec::with_capacity(size as usize);
 
@@ -25,7 +25,7 @@ pub mod funcs {
 
   #[no_mangle]
   pub unsafe extern fn deallocate(pointer: *mut u8, size: i32) {
-    println!("deallocate size={}", size);
+    // println!("deallocate size={}", size);
 
     drop(Vec::from_raw_parts(pointer, size as usize, size as usize));
   }
