@@ -8,6 +8,23 @@ const int exit_success_code = 0;
 
 const char *wasm_file_path = "../module/target/wasm32-wasi/release/funcs.wasm";
 
+// TODO
+unsigned char *splice(unsigned char *input_vec, int start, int end) {
+  uint32_t subrange_size = end - start + 1;
+  unsigned char ret_pointer[subrange_size]; 
+  for (uint32_t i = start, j = 0; i <= end; ++i, ++j) {
+      ret_pointer[j] = input_vec[i];
+  }
+
+  return ret_pointer;
+}
+
+void printBytes(unsigned char *vec) {
+  for (int i = 0; i < sizeof(int); ++i) {
+    std::cout << "Byte: " << i << ": " << static_cast<int>(vec[i]) << std::endl;
+  }
+}
+
 int allocate(WasmEdge_VMContext *VMCxt, int length) {
   WasmEdge_Value P[1], R[1]; 
   WasmEdge_String FuncName;
@@ -60,7 +77,32 @@ std::vector<int> settle(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContex
   return res;
 }
 
-void parse_result(unsigned char *ret_pointer, unsigned char *ret_len) {
+int parse_result(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContext *MemoryCxt, unsigned char *ret_pointer, unsigned char *ret_len) {
+  int size = static_cast<int>(*ret_len);
+  // int retPointer = static_cast<int>(*ret_pointer);
+
+   int retPointer;
+  std::memcpy(&retPointer, ret_pointer, sizeof(int));
+  std::cout << std::hex << retPointer << '\n';
+
+  printf("retPointer: %d\n", retPointer);
+  printf("size: %d\n", size);
+
+  unsigned char p_data[size];
+  WasmEdge_MemoryInstanceGetData(MemoryCxt, p_data, retPointer, size * 3 * 4);
+  deallocate(VMCxt, retPointer, size * 3 * 4);
+
+  std::vector<int> p_values; 
+  for (int i = 0; i < (size * 3); ++i) {
+    // p_values.push_back(n);
+  }
+
+  	// for i in 0..size * 3 {
+		// 	p_values[i] = i32::from_le_bytes(p_data[i*4..(i+1)*4].try_into().unwrap());
+		// }
+
+		// let mut results: Vec<Box<dyn Any + Send + Sync>> = Vec::with_capacity(size);
+
 
 }
 
@@ -141,19 +183,14 @@ int main() {
     int pointer = sr[0];
     //
     unsigned char *ucPointerLittleEndian = reinterpret_cast<unsigned char*>(&pointer);
-    // for (int i = 0; i < sizeof(int); ++i) {
-    //     std::cout << "Byte (pointer): " << i << ": " << static_cast<int>(ucPointerLittleEndian[i]) << std::endl;
-    // }
+    // printBytes(ucPointerLittleEndian);
     //
     WasmEdge_MemoryInstanceSetData(MemoryCxt,  ucPointerLittleEndian, pointer_of_pointers + pos * 4 * 2, sizeof(ucPointerLittleEndian));
 
     int length_of_input = sr[1];
     //
     unsigned char *ucLenghtOfInputLittleEndian = reinterpret_cast<unsigned char*>(&length_of_input);
-    // for (int i = 0; i < sizeof(int); ++i) {
-    //     std::cout << "Byte (length_of_input): " << i << ": " << static_cast<int>(ucLenghtOfInputLittleEndian[i]) << std::endl;
-    // }
-    //
+    // printBytes(ucLenghtOfInputLittleEndian);
     WasmEdge_MemoryInstanceSetData(MemoryCxt, ucLenghtOfInputLittleEndian, pointer_of_pointers + pos * 4 * 2 + 4, sizeof(ucLenghtOfInputLittleEndian));
 
     ++pos;
@@ -186,7 +223,6 @@ int main() {
 
   unsigned char flag = rvec[0];
   if (flag == 0) {
-    // rvec[1..5]
     uint32_t start = 1;
     uint32_t end = 5;
     uint32_t subrange_size = end - start + 1;
@@ -194,8 +230,7 @@ int main() {
     for (uint32_t i = start, j = 0; i <= end; ++i, ++j) {
         ret_pointer[j] = rvec[i];
     }
-    //
-    // rvec[5..9]
+
     start = 5;
     end = 9;
     subrange_size = end - start + 1;
@@ -204,7 +239,7 @@ int main() {
         ret_len[j] = rvec[i];
     }
 
-    parse_result(ret_pointer, ret_len);
+    parse_result(VMCxt, MemoryCxt, ret_pointer, ret_len);
   } else {
     printf("Error: parsing result failed\n");
     return exit_error_code;
