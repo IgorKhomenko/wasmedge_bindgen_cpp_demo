@@ -16,14 +16,29 @@ int allocate(WasmEdge_VMContext *VMCxt, int length) {
   // alloc a space for input args
   P[0] = WasmEdge_ValueGenI32(length);
   FuncName = WasmEdge_StringCreateByCString("allocate");
-  // Don't need to deallocate because the memory will be loaded and free in the wasm
   Res = WasmEdge_VMExecute(VMCxt, FuncName, P, 1, R, 1);
   WasmEdge_StringDelete(FuncName);
 
   if (WasmEdge_ResultOK(Res)) {
-    printf("allocate R: %d\n", R[0]);
-    printf("allocate R i32: %d\n", WasmEdge_ValueGetI32(R[0]));
     return WasmEdge_ValueGetI32(R[0]);
+  } else {
+    return exit_error_code;
+  }
+}
+
+int deallocate(WasmEdge_VMContext *VMCxt, int pointer, int size) {
+  WasmEdge_Value P[2], R[0]; 
+  WasmEdge_String FuncName;
+  WasmEdge_Result Res;
+
+  P[0] = WasmEdge_ValueGenI32(pointer);
+  P[1] = WasmEdge_ValueGenI32(size);
+  FuncName = WasmEdge_StringCreateByCString("deallocate");
+  Res = WasmEdge_VMExecute(VMCxt, FuncName, P, 2, R, 0);
+  WasmEdge_StringDelete(FuncName);
+
+  if (WasmEdge_ResultOK(Res)) {
+    return exit_success_code;
   } else {
     return exit_error_code;
   }
@@ -45,11 +60,8 @@ std::vector<int> settle(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContex
   return res;
 }
 
-void swapByteOrder(unsigned int& ui) {
-    ui = (ui >> 24) |
-         ((ui<<8) & 0x00FF0000) |
-         ((ui>>8) & 0x0000FF00) |
-         (ui << 24);
+void parse_result(unsigned char *ret_pointer, unsigned char *ret_len) {
+
 }
 
 int main() {
@@ -86,8 +98,14 @@ int main() {
 
   std::vector<std::string> inputs; 
   inputs.push_back("bob");
+  inputs.push_back("sam");
   //
   int inputs_count = inputs.size();
+  //
+
+
+  //
+  // https://github.com/second-state/wasmedge-bindgen/blob/main/host/rust/src/lib.rs#L329
   //
 
   // alloc a space for input args
@@ -116,25 +134,25 @@ int main() {
 
   int pos = 0;
   for (auto &inp : inputs) {
-    std::cout << "pos: " << pos << std::endl;
+    // std::cout << "pos: " << pos << std::endl;
 
     std::vector<int> sr = settle(VMCxt, MemoryCxt, inp);
 
     int pointer = sr[0];
     //
     unsigned char *ucPointerLittleEndian = reinterpret_cast<unsigned char*>(&pointer);
-    for (int i = 0; i < sizeof(int); ++i) {
-        std::cout << "Byte (pointer): " << i << ": " << static_cast<int>(ucPointerLittleEndian[i]) << std::endl;
-    }
+    // for (int i = 0; i < sizeof(int); ++i) {
+    //     std::cout << "Byte (pointer): " << i << ": " << static_cast<int>(ucPointerLittleEndian[i]) << std::endl;
+    // }
     //
     WasmEdge_MemoryInstanceSetData(MemoryCxt,  ucPointerLittleEndian, pointer_of_pointers + pos * 4 * 2, sizeof(ucPointerLittleEndian));
 
     int length_of_input = sr[1];
     //
     unsigned char *ucLenghtOfInputLittleEndian = reinterpret_cast<unsigned char*>(&length_of_input);
-    for (int i = 0; i < sizeof(int); ++i) {
-        std::cout << "Byte (length_of_input): " << i << ": " << static_cast<int>(ucLenghtOfInputLittleEndian[i]) << std::endl;
-    }
+    // for (int i = 0; i < sizeof(int); ++i) {
+    //     std::cout << "Byte (length_of_input): " << i << ": " << static_cast<int>(ucLenghtOfInputLittleEndian[i]) << std::endl;
+    // }
     //
     WasmEdge_MemoryInstanceSetData(MemoryCxt, ucLenghtOfInputLittleEndian, pointer_of_pointers + pos * 4 * 2 + 4, sizeof(ucLenghtOfInputLittleEndian));
 
@@ -157,12 +175,43 @@ int main() {
     return exit_error_code;
   }
 
-  // Don't need to deallocate because the memory will be loaded and free in the wasm
+  // Don't need to deallocate 'pointer_of_pointers' because the memory will be loaded and free in the wasm
   //
+
+  uint32_t offset = 9;
+  unsigned char rvec[offset];
+  uint32_t retsInt = WasmEdge_ValueGetI32(rets[0]);
+  WasmEdge_MemoryInstanceGetData(MemoryCxt, rvec, retsInt, offset);
+  deallocate(VMCxt, retsInt, offset);
+
+  unsigned char flag = rvec[0];
+  if (flag == 0) {
+    // rvec[1..5]
+    uint32_t start = 1;
+    uint32_t end = 5;
+    uint32_t subrange_size = end - start + 1;
+    unsigned char ret_pointer[subrange_size]; 
+    for (uint32_t i = start, j = 0; i <= end; ++i, ++j) {
+        ret_pointer[j] = rvec[i];
+    }
+    //
+    // rvec[5..9]
+    start = 5;
+    end = 9;
+    subrange_size = end - start + 1;
+    unsigned char ret_len[subrange_size]; 
+    for (uint32_t i = start, j = 0; i <= end; ++i, ++j) {
+        ret_len[j] = rvec[i];
+    }
+
+    parse_result(ret_pointer, ret_len);
+  } else {
+    printf("Error: parsing result failed\n");
+    return exit_error_code;
+  }
 
   return exit_success_code;
 }
-
 
 //
 //

@@ -5,8 +5,9 @@ pub mod funcs {
   use std::mem;
 
   #[wasmedge_bindgen]
-  pub fn say(s: String) -> String {
-    println!("say s={}", s);
+  pub fn say(s: String, s2: String) -> String {
+    println!("say s1={}", s);
+    println!("say s2={}", s2);
 
     let r = String::from("hello ");
     return r + s.as_str();
