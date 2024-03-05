@@ -5,12 +5,12 @@ pub mod funcs {
   use std::mem;
 
   #[wasmedge_bindgen]
-  pub fn say(s: String, s2: String) -> String {
-    println!("say s1={}", s);
-    println!("say s2={}", s2);
+  pub fn say(name: String, age: i32, temp: f32) -> String {
+    println!("name: {}", name);
+    println!("age: {}", age);
+    println!("temp: {}", temp);
 
-    let r = String::from("hello ");
-    return r + s.as_str();
+    return String::from("hello ") + name.as_str();
   }
 
   #[no_mangle]

@@ -97,6 +97,40 @@ std::vector<int> settle(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContex
   return res;
 }
 
+std::vector<int> settle(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContext *MemoryCxt, int input) {
+  int length_of_input = 1;
+	int pointer = allocate(VMCxt, length_of_input * 4);
+
+  unsigned char bytes[sizeof(int)];  
+  std::memcpy(bytes, &input, sizeof(int));
+
+  WasmEdge_MemoryInstanceSetData(MemoryCxt, bytes, pointer, 4);
+
+  std::vector<int> res; 
+  res.push_back(pointer);
+  res.push_back(length_of_input);
+
+  return res;
+}
+
+std::vector<int> settle(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContext *MemoryCxt, float input) {
+  printf("settle float %f\n", input);
+
+  int length_of_input = 1;
+	int pointer = allocate(VMCxt, length_of_input * 4);
+
+  unsigned char bytes[sizeof(float)];  
+  std::memcpy(bytes, &input, sizeof(float));
+
+  WasmEdge_MemoryInstanceSetData(MemoryCxt, bytes, pointer, 4);
+
+  std::vector<int> res; 
+  res.push_back(pointer);
+  res.push_back(length_of_input);
+
+  return res;
+}
+
 std::vector<std::any> parse_result(WasmEdge_VMContext *VMCxt, WasmEdge_MemoryInstanceContext *MemoryCxt, unsigned char *ret_pointer, unsigned char *ret_len) {
   int size = static_cast<int>(*ret_len);
 
@@ -205,9 +239,10 @@ int main() {
 
 
 
-  std::vector<std::string> inputs; 
+  std::vector<std::any> inputs; 
   inputs.push_back("bob");
-  inputs.push_back("sam");
+  inputs.push_back(11);
+  inputs.push_back(36.6);
   //
   int inputs_count = inputs.size();
   //
@@ -243,9 +278,18 @@ int main() {
 
   int pos = 0;
   for (auto &inp : inputs) {
-    // std::cout << "pos: " << pos << std::endl;
-
-    std::vector<int> sr = settle(VMCxt, MemoryCxt, inp);
+    std::vector<int> sr;
+    if (inp.type() == typeid(int)) {
+      sr = settle(VMCxt, MemoryCxt, std::any_cast<int>(inp));
+    } else if (inp.type() == typeid(double)) {
+      double val = std::any_cast<double>(inp);
+      sr = settle(VMCxt, MemoryCxt, (float)val);
+    } else if (inp.type() == typeid(const char*)) {
+      const char* val = std::any_cast<const char*>(inp);
+      sr = settle(VMCxt, MemoryCxt, std::string(val));
+    } else {
+       // TODO
+    }
 
     int pointer = sr[0];
     //
@@ -308,22 +352,3 @@ int main() {
 
   return exit_success_code;
 }
-
-//
-//
-//
-// int myInt = 123; // Your integer value
-// unsigned char *ptr = reinterpret_cast<unsigned char*>(&myInt);
-// for (int i = 0; i < sizeof(int); ++i) {
-//     std::cout << "Byte " << i << ": " << static_cast<int>(ptr[i]) << std::endl;
-// }
-//
-// The output you're seeing is expected for a little-endian system, where the least significant byte comes first in memory. In your case, it appears that the integer 123 is represented in memory as follows:
-//
-// Byte 0: 123
-// Byte 1: 0
-// Byte 2: 0
-// Byte 3: 0
-// This output indicates that the integer 123 is stored in memory using 4 bytes, where the least significant byte (LSB) is 123 and the other bytes are 0. This is consistent with little-endian byte ordering, where the least significant byte comes first in memory.
-
-// So yes, it's okay, and it reflects the memory layout of the integer 123 on your system.
