@@ -6,16 +6,7 @@ version = 3
 name = "funcs"
 version = "0.1.0"
 dependencies = [
- "macroutils",
-]
-
-[[package]]
-name = "macroutils"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
+ "wasmedge-bindgen-macro",
 ]
 
 [[package]]
@@ -52,3 +43,14 @@ name = "unicode-ident"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b"
+
+[[package]]
+name = "wasmedge-bindgen-macro"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9fe812750bd02aac1b3b32f90f70442b58e802cb2b09454726619af359fdf33"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]

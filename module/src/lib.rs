@@ -1,6 +1,5 @@
 pub mod funcs {
-  // use wasmedge_bindgen_macro::*;
-  use macroutils::*;
+  use wasmedge_bindgen_macro::*;
 
   use std::mem;
 

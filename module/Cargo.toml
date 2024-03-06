@@ -7,5 +7,4 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-macroutils = { path = "../macroutils" }
-# wasmedge-bindgen-macro = "0.4.1"
+wasmedge-bindgen-macro = "0.4.1"
