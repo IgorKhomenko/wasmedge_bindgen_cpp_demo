@@ -6,6 +6,7 @@ version = 3
 name = "funcs"
 version = "0.1.0"
 dependencies = [
+ "wasmedge-bindgen",
  "wasmedge-bindgen-macro",
 ]
 
@@ -43,6 +44,12 @@ name = "unicode-ident"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3354b9ac3fae1ff6755cb6db53683adb661634f67557942dea4facebec0fee4b"
+
+[[package]]
+name = "wasmedge-bindgen"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "363e00c6f7c2fd162c36a97b3f352dd0ed690cde5c0d0a6d50524ef9c0fa7acd"
 
 [[package]]
 name = "wasmedge-bindgen-macro"
