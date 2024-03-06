@@ -9,7 +9,7 @@ pub mod funcs {
     println!("age: {}", age);
     println!("temp: {}", temp);
 
-    return String::from("hello ") + name.as_str();
+    return format!("hello {}, age: {}, temp: {}", name.as_str(), age, temp);
   }
 
   #[no_mangle]
